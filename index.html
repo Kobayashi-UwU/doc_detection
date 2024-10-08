@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document Scanner</title>
+    <title>Document Scanner with Threshold Adjustment</title>
     <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css">
     <script defer src="https://pyscript.net/latest/pyscript.js"></script>
     <script defer src="https://docs.opencv.org/4.x/opencv.js"></script>
@@ -19,6 +19,19 @@ packages = ["numpy", "opencv-python"]
 <!-- File input to upload an image -->
 <input type="file" id="imageInput" accept="image/*">
 <br><br>
+
+<!-- Threshold sliders -->
+<div>
+    <label for="threshold1">Threshold 1: </label>
+    <input type="range" id="threshold1" min="0" max="255" value="200">
+    <span id="threshold1Value">200</span>
+</div>
+<div>
+    <label for="threshold2">Threshold 2: </label>
+    <input type="range" id="threshold2" min="0" max="255" value="200">
+    <span id="threshold2Value">200</span>
+</div>
+<br>
 
 <!-- Process button to trigger document scanning -->
 <button id="processButton">Process</button>
@@ -100,12 +113,16 @@ def onProcessClick(event):
         img_data = np.frombuffer(bytearray(base64.b64decode(base64_data)), dtype=np.uint8)
         img = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
         
+        # Get threshold values from sliders
+        threshold1 = int(document.getElementById("threshold1").value)
+        threshold2 = int(document.getElementById("threshold2").value)
+        
         # Image processing pipeline from your Main.py
         heightImg, widthImg = 640, 480
         img = cv2.resize(img, (widthImg, heightImg))
         imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         imgBlur = cv2.GaussianBlur(imgGray, (5, 5), 1)
-        imgThreshold = cv2.Canny(imgBlur, 200, 200)
+        imgThreshold = cv2.Canny(imgBlur, threshold1, threshold2)
         kernel = np.ones((5, 5))
         imgDial = cv2.dilate(imgThreshold, kernel, iterations=2)
         imgThreshold = cv2.erode(imgDial, kernel, iterations=1)
@@ -136,8 +153,21 @@ def onProcessClick(event):
     reader.onload = create_proxy(onload)
     reader.readAsDataURL(file)
 
+# Update threshold values on slider change
+def updateThreshold1(event):
+    document.getElementById("threshold1Value").innerText = event.target.value
+
+def updateThreshold2(event):
+    document.getElementById("threshold2Value").innerText = event.target.value
+
 process_click_proxy = create_proxy(onProcessClick)
 document.getElementById("processButton").addEventListener("click", process_click_proxy)
+
+# Add event listeners to sliders for updating threshold values
+threshold1_proxy = create_proxy(updateThreshold1)
+threshold2_proxy = create_proxy(updateThreshold2)
+document.getElementById("threshold1").addEventListener("input", threshold1_proxy)
+document.getElementById("threshold2").addEventListener("input", threshold2_proxy)
 
 </py-script>
 
