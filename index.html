@@ -36,6 +36,9 @@ packages = ["numpy", "opencv-python"]
 <!-- Process button to trigger document scanning -->
 <button id="processButton">Process</button>
 
+<!-- Div to display processing time -->
+<div id="processingTime" style="font-weight: bold; margin-top: 10px;"></div>
+
 <!-- Area to display the scanned document -->
 <img id="outputImage" style="display:none;" alt="Scanned Document" />
 
@@ -46,7 +49,7 @@ import numpy as np
 from js import document, FileReader
 from pyodide.ffi import create_proxy
 import base64
-
+import time
 # Util functions (from your Utlis.py)
 def stackImages(imgArray, scale, labels=[]):
     rows = len(imgArray)
@@ -98,6 +101,8 @@ def reorder(points):
 
 # Processing logic for uploaded image
 def onProcessClick(event):
+    start_time = time.time()  # Start timer
+
     image_input = document.getElementById("imageInput")
     file = image_input.files.item(0)
     
@@ -149,7 +154,11 @@ def onProcessClick(event):
             output_image = document.getElementById("outputImage")
             output_image.src = f"data:image/png;base64,{img_base64}"
             output_image.style.display = "block"
-    
+        
+        end_time = time.time()  # End timer
+        processing_time = end_time - start_time  # Calculate total processing time
+        document.getElementById("processingTime").innerText = f"Processing Time: {processing_time:.2f} seconds"
+
     reader.onload = create_proxy(onload)
     reader.readAsDataURL(file)
 
