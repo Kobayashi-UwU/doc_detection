@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document Scanner with Camera and Real-time Detection</title>
+    <title>Document Scanner with Threshold Adjustment</title>
     <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css">
     <script defer src="https://pyscript.net/latest/pyscript.js"></script>
     <script defer src="https://docs.opencv.org/4.x/opencv.js"></script>
@@ -20,17 +20,6 @@ packages = ["numpy", "opencv-python"]
 <input type="file" id="imageInput" accept="image/*">
 <br><br>
 
-<!-- Camera controls -->
-<button id="startCamera">Start Camera</button>
-<button id="stopCamera" style="display:none;">Stop Camera</button>
-<br><br>
-
-<!-- Video element for camera feed -->
-<video id="video" width="640" height="480" style="display:none;"></video>
-
-<!-- Canvas for displaying processed frames -->
-<canvas id="outputCanvas" width="640" height="480" style="display:none;"></canvas>
-
 <!-- Threshold sliders -->
 <div>
     <label for="threshold1">Threshold 1: </label>
@@ -45,69 +34,22 @@ packages = ["numpy", "opencv-python"]
 <br>
 
 <!-- Process button to trigger document scanning -->
-<button id="processButton">Process Image</button>
+<button id="processButton">Process</button>
+
+<!-- Div to display processing time -->
+<div id="processingTime" style="font-weight: bold; margin-top: 10px;"></div>
 
 <!-- Area to display the scanned document -->
 <img id="outputImage" style="display:none;" alt="Scanned Document" />
 
-<script>
-let video = document.getElementById('video');
-let canvas = document.getElementById('outputCanvas');
-let ctx = canvas.getContext('2d');
-let mediaStream = null;
-
-document.getElementById('startCamera').addEventListener('click', async () => {
-    try {
-        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = mediaStream;
-        video.play();
-        document.getElementById('startCamera').style.display = 'none';
-        document.getElementById('stopCamera').style.display = 'inline-block';
-        video.style.display = 'block';
-        canvas.style.display = 'block';
-        document.getElementById('outputImage').style.display = 'none';
-        startVideoProcessing();
-    } catch (err) {
-        console.error("Error accessing the camera:", err);
-    }
-});
-
-document.getElementById('stopCamera').addEventListener('click', () => {
-    if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-        video.srcObject = null;
-        document.getElementById('startCamera').style.display = 'inline-block';
-        document.getElementById('stopCamera').style.display = 'none';
-        video.style.display = 'none';
-        canvas.style.display = 'none';
-    }
-});
-
-function startVideoProcessing() {
-    if (video.paused || video.ended) return;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    processFrame(imageData);
-    requestAnimationFrame(startVideoProcessing);
-}
-
-function processFrame(imageData) {
-    // This function will be implemented in PyScript
-    if (typeof window.pyodide !== 'undefined') {
-        window.pyodide.runPython(`
-            process_frame(${JSON.stringify(Array.from(imageData.data))}, ${imageData.width}, ${imageData.height})
-        `);
-    }
-}
-</script>
-
+<!-- PyScript logic -->
 <py-script>
 import cv2
 import numpy as np
-from js import document, FileReader, ImageData
+from js import document, FileReader
 from pyodide.ffi import create_proxy
 import base64
-
+import time
 # Util functions (from your Utlis.py)
 def stackImages(imgArray, scale, labels=[]):
     rows = len(imgArray)
@@ -159,6 +101,8 @@ def reorder(points):
 
 # Processing logic for uploaded image
 def onProcessClick(event):
+    start_time = time.time()  # Start timer
+
     image_input = document.getElementById("imageInput")
     file = image_input.files.item(0)
     
@@ -174,50 +118,49 @@ def onProcessClick(event):
         img_data = np.frombuffer(bytearray(base64.b64decode(base64_data)), dtype=np.uint8)
         img = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
         
-        process_image(img)
-    
+        # Get threshold values from sliders
+        threshold1 = int(document.getElementById("threshold1").value)
+        threshold2 = int(document.getElementById("threshold2").value)
+        
+        # Image processing pipeline from your Main.py
+        heightImg, widthImg = 640, 480
+        img = cv2.resize(img, (widthImg, heightImg))
+        imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        imgBlur = cv2.GaussianBlur(imgGray, (5, 5), 1)
+        imgThreshold = cv2.Canny(imgBlur, threshold1, threshold2)
+        kernel = np.ones((5, 5))
+        imgDial = cv2.dilate(imgThreshold, kernel, iterations=2)
+        imgThreshold = cv2.erode(imgDial, kernel, iterations=1)
+
+        contours, _ = cv2.findContours(imgThreshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        biggest, _ = biggestContour(contours)
+        
+        if biggest.size != 0:
+            biggest = reorder(biggest)
+            pts1 = np.float32(biggest)
+            pts2 = np.float32([[0, 0], [widthImg, 0], [0, heightImg], [widthImg, heightImg]])
+            matrix = cv2.getPerspectiveTransform(pts1, pts2)
+            imgWarpColored = cv2.warpPerspective(img, matrix, (widthImg, heightImg))
+            
+            imgWarpGray = cv2.cvtColor(imgWarpColored, cv2.COLOR_BGR2GRAY)
+            imgAdaptiveThre = cv2.adaptiveThreshold(imgWarpGray, 255, 1, 1, 7, 2)
+            imgAdaptiveThre = cv2.bitwise_not(imgAdaptiveThre)
+            imgAdaptiveThre = cv2.medianBlur(imgAdaptiveThre, 3)
+            
+            stackedImage = stackImages([[img, imgGray, imgThreshold], [imgWarpColored, imgWarpGray, imgAdaptiveThre]], 0.75)
+            
+            _, img_encoded = cv2.imencode('.png', stackedImage)
+            img_base64 = base64.b64encode(img_encoded).decode('utf-8')
+            output_image = document.getElementById("outputImage")
+            output_image.src = f"data:image/png;base64,{img_base64}"
+            output_image.style.display = "block"
+        
+        end_time = time.time()  # End timer
+        processing_time = end_time - start_time  # Calculate total processing time
+        document.getElementById("processingTime").innerText = f"Processing Time: {processing_time:.2f} seconds"
+
     reader.onload = create_proxy(onload)
     reader.readAsDataURL(file)
-
-def process_image(img):
-    # Get threshold values from sliders
-    threshold1 = int(document.getElementById("threshold1").value)
-    threshold2 = int(document.getElementById("threshold2").value)
-    
-    # Image processing pipeline from your Main.py
-    heightImg, widthImg = 640, 480
-    img = cv2.resize(img, (widthImg, heightImg))
-    imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    imgBlur = cv2.GaussianBlur(imgGray, (5, 5), 1)
-    imgThreshold = cv2.Canny(imgBlur, threshold1, threshold2)
-    kernel = np.ones((5, 5))
-    imgDial = cv2.dilate(imgThreshold, kernel, iterations=2)
-    imgThreshold = cv2.erode(imgDial, kernel, iterations=1)
-
-    contours, _ = cv2.findContours(imgThreshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    biggest, _ = biggestContour(contours)
-    
-    if biggest.size != 0:
-        biggest = reorder(biggest)
-        pts1 = np.float32(biggest)
-        pts2 = np.float32([[0, 0], [widthImg, 0], [0, heightImg], [widthImg, heightImg]])
-        matrix = cv2.getPerspectiveTransform(pts1, pts2)
-        imgWarpColored = cv2.warpPerspective(img, matrix, (widthImg, heightImg))
-        
-        imgWarpGray = cv2.cvtColor(imgWarpColored, cv2.COLOR_BGR2GRAY)
-        imgAdaptiveThre = cv2.adaptiveThreshold(imgWarpGray, 255, 1, 1, 7, 2)
-        imgAdaptiveThre = cv2.bitwise_not(imgAdaptiveThre)
-        imgAdaptiveThre = cv2.medianBlur(imgAdaptiveThre, 3)
-        
-        stackedImage = stackImages([[img, imgGray, imgThreshold], [imgWarpColored, imgWarpGray, imgAdaptiveThre]], 0.75)
-        
-        _, img_encoded = cv2.imencode('.png', stackedImage)
-        img_base64 = base64.b64encode(img_encoded).decode('utf-8')
-        output_image = document.getElementById("outputImage")
-        output_image.src = f"data:image/png;base64,{img_base64}"
-        output_image.style.display = "block"
-    else:
-        print("No document detected")
 
 # Update threshold values on slider change
 def updateThreshold1(event):
@@ -225,17 +168,6 @@ def updateThreshold1(event):
 
 def updateThreshold2(event):
     document.getElementById("threshold2Value").innerText = event.target.value
-
-# Process frame from camera
-def process_frame(frame_data, width, height):
-    # Convert frame data to numpy array
-    frame = np.array(frame_data, dtype=np.uint8).reshape((height, width, 4))
-    
-    # Convert RGBA to BGR
-    frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
-    
-    # Process the frame
-    process_image(frame)
 
 process_click_proxy = create_proxy(onProcessClick)
 document.getElementById("processButton").addEventListener("click", process_click_proxy)
