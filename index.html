@@ -12,16 +12,46 @@
       defer
       src="https://pyscript.net/releases/2023.03.1/pyscript.js"
     ></script>
+    <script src="photoLibrary.js" defer></script>
+    <style>
+      .photo-library {
+        display: grid;
+        grid-template-columns: repeat(10, 1fr); /* 3 columns layout */
+        gap: 20px;
+        margin-top: 20px;
+      }
+      .photo-item {
+        text-align: center;
+      }
+      .photo-item p {
+        margin: 0;
+        font-weight: bold;
+      }
+      .photo-item img {
+        border: 2px solid #ccc;
+        cursor: pointer;
+        transition: border-color 0.3s ease;
+      }
+      .photo-item img:hover {
+        border-color: #000;
+      }
+    </style>
   </head>
   <body>
     <py-config src="./pyscript.toml"></py-config>
     <py-script src="./main.py"></py-script>
 
     <!-- File input to upload an image -->
+    <h1>Upload Image</h1>
     <input type="file" id="image-input" accept="image/*" />
     <br /><br />
 
+    <!-- Photo library for testing -->
+     <h1>Test data</h1>
+    <div class="photo-library"></div>
+
     <!-- Camera -->
+     <h1>Upload using camera</h1>
     <button id="start-camera">Start Camera</button>
     <button id="stop-camera">Stop Camera</button>
     <video id="video" width="600" height="400" autoplay></video>
@@ -29,6 +59,7 @@
     <canvas id="canvas" width="600" height="400"></canvas>
 
     <!-- Threshold sliders -->
+    <h1>Adjust Threshold</h1>
     <div>
       <label for="threshold1">Threshold 1: </label>
       <input type="range" id="threshold1" min="0" max="255" value="200" />
@@ -50,6 +81,7 @@
     <!-- Area to display the scanned document -->
     <img id="output_image" style="display: none" alt="Scanned Document" />
 
+    <h1>Download Photo</h1>
     <button id="download-photo" py-click="download_picture()">
       Download Photo</button
     ><br />

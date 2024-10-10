@@ -16,6 +16,31 @@ process_button = js.document.querySelector("#process-button")
 image_input = js.document.querySelector("#image-input")
 time_display = js.document.querySelector("#time-display")
 
+def load_library_photo(e):
+    img_src = e.target.src  # Get the source of the clicked image
+    js.console.log(f"Loading image from: {img_src}")
+
+    def fetch_image(src):
+        # Fetch image data from the given URL (src)
+        js.fetch(src).then(lambda response: response.blob()).then(process_blob)
+
+    def process_blob(blob):
+        reader = FileReader.new()
+
+        def onload(event):
+            data_url = reader.result
+            base64_data = data_url.split(",")[1]
+            img_data = np.frombuffer(
+                bytearray(base64.b64decode(base64_data)), dtype=np.uint8
+            )
+            img = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
+            process_document(img, time.time())
+
+        reader.onload = create_proxy(onload)
+        reader.readAsDataURL(blob)
+
+    fetch_image(img_src)
+
 
 async def start_camera_click(e):
     media = js.Object.new()
@@ -220,3 +245,8 @@ threshold1_proxy = create_proxy(updateThreshold1)
 threshold2_proxy = create_proxy(updateThreshold2)
 document.getElementById("threshold1").addEventListener("input", threshold1_proxy)
 document.getElementById("threshold2").addEventListener("input", threshold2_proxy)
+
+# Photo library
+library_photos = document.querySelectorAll(".library-photo")
+for photo in library_photos:
+    photo.addEventListener("click", create_proxy(load_library_photo))
