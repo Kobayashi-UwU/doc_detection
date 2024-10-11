@@ -209,6 +209,10 @@ def stackImages(imgArray, scale, labels=[]):
     return ver
 
 
+def resize_image(img, width=1080, height=1920):
+    return cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
+
+
 def process_image(event):
     start_time = time.time()  # Start timer
 
@@ -223,7 +227,12 @@ def process_image(event):
             bytearray(base64.b64decode(base64_data)), dtype=np.uint8
         )
         img = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
-        process_document(img, start_time)  # Process the captured image from canvas
+
+        # Resize the image before processing
+        resized_img = resize_image(img)
+        process_document(
+            resized_img, start_time
+        )  # Process the captured image from canvas
     else:
         # File uploaded, process the uploaded file
         reader = FileReader.new()
@@ -235,7 +244,10 @@ def process_image(event):
                 bytearray(base64.b64decode(base64_data)), dtype=np.uint8
             )
             img = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
-            process_document(img, start_time)  # Process the uploaded image
+
+            # Resize the image before processing
+            resized_img = resize_image(img)
+            process_document(resized_img, start_time)  # Process the uploaded image
 
         reader.onload = create_proxy(onload)
         reader.readAsDataURL(file)
