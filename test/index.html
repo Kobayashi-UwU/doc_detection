@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Camera Selection and Photo Capture</title>
+    <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
+    <style>
+      /* Responsive styling */
+      video,
+      canvas {
+        max-width: 100%;
+        height: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Camera Selection and Photo Capture</h1>
+
+    <!-- Dropdown to choose a camera -->
+    <select id="cameraSelect"></select>
+
+    <!-- Video element to display the camera feed -->
+    <video id="video" autoplay playsinline></video>
+
+    <!-- Canvas to display the captured photo -->
+    <canvas id="canvas" style="display: none"></canvas>
+
+    <!-- Buttons for camera control and photo capture -->
+    <div>
+      <button id="startButton">Start Camera</button>
+      <button id="stopButton" disabled>Stop Camera</button>
+      <button id="takePhotoButton" disabled>Take Photo</button>
+    </div>
+
+    <py-script src="main.py"></py-script>
+
+    <script src="https://pyscript.net/latest/pyscript.js"></script>
+  </body>
+</html>

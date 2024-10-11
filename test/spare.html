@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Camera Selection (Mobile & PC)</title>
+    <style>
+      /* Responsive styling */
+      video {
+        max-width: 100%;
+        height: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Select Camera</h1>
+
+    <!-- Dropdown to choose a camera -->
+    <select id="cameraSelect"></select>
+
+    <!-- Video element to display the camera feed -->
+    <video id="video" autoplay playsinline></video>
+
+    <!-- Button to start the camera -->
+    <button id="startButton">Start Camera</button>
+
+    <!-- Button to stop the camera -->
+    <button id="stopButton" disabled>Stop Camera</button>
+
+    <script>
+      const video = document.getElementById("video");
+      const startButton = document.getElementById("startButton");
+      const stopButton = document.getElementById("stopButton");
+      const cameraSelect = document.getElementById("cameraSelect");
+      let stream;
+
+      // Function to list available cameras
+      async function getCameras() {
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoDevices = devices.filter(
+            (device) => device.kind === "videoinput"
+          );
+
+          // Populate the dropdown with camera options
+          cameraSelect.innerHTML = "";
+          videoDevices.forEach((device, index) => {
+            const option = document.createElement("option");
+            option.value = device.deviceId;
+            option.text = device.label || `Camera ${index + 1}`;
+            cameraSelect.appendChild(option);
+          });
+
+          // Auto-select the back camera if available on mobile
+          if (videoDevices.length > 1) {
+            const backCamera = videoDevices.find((device) =>
+              device.label.toLowerCase().includes("back")
+            );
+            if (backCamera) {
+              cameraSelect.value = backCamera.deviceId;
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching cameras:", err);
+        }
+      }
+
+      // Function to start the camera based on the selected option
+      async function startCamera() {
+        if (stream) {
+          // Stop any active streams before starting a new one
+          stopCamera();
+        }
+
+        const selectedDeviceId = cameraSelect.value;
+
+        try {
+          // Request access to the selected camera
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { deviceId: selectedDeviceId },
+          });
+          video.srcObject = stream;
+          startButton.disabled = true;
+          stopButton.disabled = false;
+        } catch (err) {
+          console.error("Error accessing camera:", err);
+        }
+      }
+
+      // Function to stop the camera
+      function stopCamera() {
+        if (stream) {
+          const tracks = stream.getTracks();
+          tracks.forEach((track) => track.stop());
+          video.srcObject = null;
+          startButton.disabled = false;
+          stopButton.disabled = true;
+        }
+      }
+
+      // Event listeners
+      startButton.addEventListener("click", startCamera);
+      stopButton.addEventListener("click", stopCamera);
+
+      // Get the list of cameras on page load
+      getCameras();
+
+      // Handle permission denied scenario
+      navigator.permissions.query({ name: "camera" }).then(function (result) {
+        if (result.state === "denied") {
+          alert("Camera access is required for this feature to work.");
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -47,16 +47,28 @@
     <br /><br />
 
     <!-- Photo library for testing -->
-    <h1>Test data</h1>
-    <div class="photo-library"></div>
+    <!-- <h1>Test data</h1>
+    <div class="photo-library"></div> -->
 
     <!-- Camera -->
     <h1>Upload using camera</h1>
-    <button id="start-camera">Start Camera</button>
-    <button id="stop-camera">Stop Camera</button>
-    <video id="video" width="600" height="400" autoplay></video>
-    <button id="take-photo">Take Photo</button>
-    <canvas id="canvas" width="600" height="400"></canvas>
+    <!-- Dropdown to choose a camera -->
+    <select id="cameraSelect"></select>
+
+    <!-- Video element to display the camera feed -->
+    <div>
+      <video id="video" autoplay playsinline></video>
+    </div>
+
+    <!-- Buttons for camera control and photo capture -->
+    <div>
+      <button id="startButton">Start Camera</button>
+      <button id="stopButton" disabled>Stop Camera</button>
+      <button id="takePhotoButton" disabled>Take Photo</button>
+    </div>
+
+    <!-- Canvas to display the captured photo -->
+    <canvas id="canvas" style="display: none"></canvas>
 
     <!-- Threshold sliders -->
     <h1>Adjust Threshold</h1>
