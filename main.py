@@ -94,6 +94,9 @@ def stop_camera(event=None):
         document.getElementById("startButton").disabled = False
         document.getElementById("stopButton").disabled = True
         document.getElementById("takePhotoButton").disabled = True
+        document.getElementById("downloadButton").disabled = (
+            True  # Disable download button
+        )
         console.log("Camera stopped")
 
 
@@ -115,10 +118,15 @@ def take_photo(event):
 
 
 def download_picture(e=None):
-    link = js.document.createElement("a")
-    link.download = "gotchya.png"
-    link.href = document.getElementById("canvas").toDataURL()
-    link.click()
+    # Check if the image is ready to download
+    output_image = document.getElementById("output_image")
+    if output_image.src:
+        link = js.document.createElement("a")
+        link.download = "scanned_document.png"  # You can change the filename here
+        link.href = output_image.src  # Get the source of the output image
+        link.click()
+    else:
+        console.error("No image available to download.")
 
 
 def load_library_photo(e):
@@ -193,10 +201,6 @@ def stackImages(imgArray, scale, labels=[]):
     return ver
 
 
-def resize_image(img, width=1080, height=1920):
-    return cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
-
-
 def process_image(event):
     start_time = time.time()  # Start timer
 
@@ -232,11 +236,18 @@ def process_image(event):
 
 def process_resized_and_original(img, start_time):
     console.log("Processing")
+    h, w, c = img.shape
+    print("width:  ", w)
+    print("height: ", h)
+    print("channel:", c)
+
+    # Output image size
+    img = cv2.resize(img, (1080, 1920))
 
     original_height, original_width = img.shape[:2]
 
-    # Step 1: Resize image for faster processing (e.g., reduce to 640x480)
-    heightImg, widthImg = 480, 640
+    # Step 1: Resize image
+    heightImg, widthImg = 240, 180
     resized_img = cv2.resize(img, (widthImg, heightImg))
 
     # Step 2: Process resized image to find document

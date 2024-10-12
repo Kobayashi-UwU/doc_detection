@@ -84,6 +84,9 @@ def stop_camera(event=None):
         document.getElementById("startButton").disabled = False
         document.getElementById("stopButton").disabled = True
         document.getElementById("takePhotoButton").disabled = True
+        document.getElementById("downloadButton").disabled = (
+            True  # Disable download button
+        )
         console.log("Camera stopped")
 
 
@@ -102,7 +105,24 @@ def take_photo(event):
     # Display the canvas
     canvas.style.display = "block"
 
+    # Enable the download button
+    document.getElementById("downloadButton").disabled = False
+
     console.log("Photo taken")
+
+
+def download_photo(event):
+    canvas = document.getElementById("canvas")
+    link = document.createElement("a")
+
+    # Create a data URL for the canvas image
+    link.href = canvas.toDataURL("image/png")
+    link.download = "captured_image.png"  # Specify the name for the downloaded file
+
+    # Programmatically click the link to trigger the download
+    link.click()
+
+    console.log("Photo downloaded")
 
 
 def main():
@@ -114,14 +134,17 @@ def main():
     start_button = document.getElementById("startButton")
     stop_button = document.getElementById("stopButton")
     take_photo_button = document.getElementById("takePhotoButton")
+    download_button = document.getElementById("downloadButton")
 
     start_camera_proxy = create_proxy(start_camera)
     stop_camera_proxy = create_proxy(stop_camera)
     take_photo_proxy = create_proxy(take_photo)
+    download_photo_proxy = create_proxy(download_photo)
 
     start_button.addEventListener("click", start_camera_proxy)
     stop_button.addEventListener("click", stop_camera_proxy)
     take_photo_button.addEventListener("click", take_photo_proxy)
+    download_button.addEventListener("click", download_photo_proxy)
 
     console.log("Event listeners attached")
 
