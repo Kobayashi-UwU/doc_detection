@@ -74,8 +74,8 @@
     <h1>Adjust Threshold</h1>
     <div>
       <label for="threshold1">Threshold 1: </label>
-      <input type="range" id="threshold1" min="0" max="255" value="255" />
-      <span id="threshold1Value">255</span>
+      <input type="range" id="threshold1" min="0" max="255" value="150" />
+      <span id="threshold1Value">150</span>
     </div>
     <div>
       <label for="threshold2">Threshold 2: </label>
@@ -90,8 +90,22 @@
     <!-- Div to display processing time -->
     <div id="time-display" style="font-weight: bold; margin-top: 10px"></div>
 
-    <!-- Area to display the scanned document -->
-    <img id="output_image" style="display: none" alt="Scanned Document" />
+    <!-- Display drew contour -->
+    <img
+      id="output_contour"
+      style="display: none"
+      alt="Scanned Document"
+      width="720"
+      height="1280"
+    />
+    <!-- Display drew rectangle -->
+    <img
+      id="output_image"
+      style="display: none"
+      alt="Scanned Document"
+      width="720"
+      height="1280"
+    />
 
     <h1>Download Photo</h1>
     <button id="download-photo" py-click="download_picture()">

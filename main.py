@@ -113,6 +113,7 @@ def take_photo(event):
     # Display the canvas
     canvas.style.display = "block"
 
+
 def download_picture(e=None):
     link = js.document.createElement("a")
     link.download = "gotchya.png"
@@ -138,7 +139,7 @@ def load_library_photo(e):
                 bytearray(base64.b64decode(base64_data)), dtype=np.uint8
             )
             img = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
-            process_document(img, time.time())
+            process_resized_and_original(img, time.time())
 
         reader.onload = create_proxy(onload)
         reader.readAsDataURL(blob)
@@ -153,8 +154,6 @@ def updateThreshold1(event):
 
 def updateThreshold2(event):
     document.getElementById("threshold2Value").innerText = event.target.value
-
-
 
 
 def reorder(points):
@@ -197,6 +196,7 @@ def stackImages(imgArray, scale, labels=[]):
 def resize_image(img, width=1080, height=1920):
     return cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
 
+
 def process_image(event):
     start_time = time.time()  # Start timer
 
@@ -207,7 +207,9 @@ def process_image(event):
         # No file uploaded, process image from the canvas
         image_data_url = canvas.toDataURL("image/jpeg")
         base64_data = image_data_url.split(",")[1]  # Extract only Base64 part
-        img_data = np.frombuffer(bytearray(base64.b64decode(base64_data)), dtype=np.uint8)
+        img_data = np.frombuffer(
+            bytearray(base64.b64decode(base64_data)), dtype=np.uint8
+        )
         img = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
         process_resized_and_original(img, start_time)
 
@@ -218,7 +220,9 @@ def process_image(event):
         def onload(event):
             data_url = reader.result
             base64_data = data_url.split(",")[1]
-            img_data = np.frombuffer(bytearray(base64.b64decode(base64_data)), dtype=np.uint8)
+            img_data = np.frombuffer(
+                bytearray(base64.b64decode(base64_data)), dtype=np.uint8
+            )
             img = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
             process_resized_and_original(img, start_time)
 
@@ -226,24 +230,11 @@ def process_image(event):
         reader.readAsDataURL(file)
 
 
-def biggestContour(contours):
-    biggest = np.array([])
-    max_area = 0
-    for i in contours:
-        area = cv2.contourArea(i)
-        if area > 1000:  # Lowered from 5000 for smaller resized images
-            peri = cv2.arcLength(i, True)
-            approx = cv2.approxPolyDP(i, 0.02 * peri, True)
-            if area > max_area and len(approx) == 4:
-                biggest = approx
-                max_area = area
-    return biggest, max_area
-
 def process_resized_and_original(img, start_time):
     console.log("Processing")
 
     original_height, original_width = img.shape[:2]
-    
+
     # Step 1: Resize image for faster processing (e.g., reduce to 640x480)
     heightImg, widthImg = 480, 640
     resized_img = cv2.resize(img, (widthImg, heightImg))
@@ -256,119 +247,56 @@ def process_resized_and_original(img, start_time):
     threshold1 = int(document.getElementById("threshold1").value)
     threshold2 = int(document.getElementById("threshold2").value)
     imgThreshold = cv2.Canny(imgBlur, threshold1, threshold2)
-    
+
     kernel = np.ones((5, 5))
     imgDial = cv2.dilate(imgThreshold, kernel, iterations=2)
     imgThreshold = cv2.erode(imgDial, kernel, iterations=1)
 
     # Debug: Draw contours on resized image
-    contours, _ = cv2.findContours(imgThreshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    debug_img = resized_img.copy()
-    cv2.drawContours(debug_img, contours, -1, (0, 255, 0), 3)  # Draw all contours for debugging
-
-    biggest, _ = biggestContour(contours)
-
-    if biggest.size != 0:
-        console.log("Biggest Contour Found")
-        # Step 3: Reorder points and scale them back to original image size
-        biggest = reorder(biggest)
-        scale_x = original_width / widthImg
-        scale_y = original_height / heightImg
-        scaled_biggest = biggest * [scale_x, scale_y]
-
-        # Step 4: Warp original image using scaled coordinates
-        pts1 = np.float32(scaled_biggest)
-        pts2 = np.float32([[0, 0], [original_width, 0], [0, original_height], [original_width, original_height]])
-        matrix = cv2.getPerspectiveTransform(pts1, pts2)
-        imgWarpColored = cv2.warpPerspective(img, matrix, (original_width, original_height))
-
-        # Step 5: Display the high-quality cropped document
-        _, img_encoded = cv2.imencode(".png", imgWarpColored)
-        img_base64 = base64.b64encode(img_encoded).decode("utf-8")
-        output_image = document.getElementById("output_image")
-        output_image.src = f"data:image/png;base64,{img_base64}"
-        output_image.style.display = "block"
-
-    else:
-        console.log("No biggest contour found, using bounding box")
-        # If no biggest contour, find the bounding rectangle of the largest contour
-        if contours:
-            largest_contour = max(contours, key=cv2.contourArea)
-            x, y, w, h = cv2.boundingRect(largest_contour)
-            # Scale coordinates back to original size
-            scale_x = original_width / widthImg
-            scale_y = original_height / heightImg
-            x = int(x * scale_x)
-            y = int(y * scale_y)
-            w = int(w * scale_x)
-            h = int(h * scale_y)
-
-            # Crop the original image using the bounding rectangle
-            imgCropped = img[y:y+h, x:x+w]
-
-            # Display the cropped image
-            _, img_encoded = cv2.imencode(".png", imgCropped)
-            img_base64 = base64.b64encode(img_encoded).decode("utf-8")
-            output_image = document.getElementById("output_image")
-            output_image.src = f"data:image/png;base64,{img_base64}"
-            output_image.style.display = "block"
-        else:
-            console.log("No contours found, unable to process image")
-
-    end_time = time.time()  # End timer
-    processing_time = end_time - start_time  # Calculate total processing time
-    document.getElementById("time-display").innerText = (
-        f"Processing Time: {processing_time:.2f} seconds"
-    )
-
-# Make sure to keep this function as it is
-def process_document(img, start_time):
-    # Get threshold values from sliders
-    threshold1 = int(document.getElementById("threshold1").value)
-    threshold2 = int(document.getElementById("threshold2").value)
-
-    # Image processing pipeline
-    heightImg, widthImg = 640, 480
-    img = cv2.resize(img, (widthImg, heightImg))
-    imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    imgBlur = cv2.GaussianBlur(imgGray, (5, 5), 1)
-    imgThreshold = cv2.Canny(imgBlur, threshold1, threshold2)
-    kernel = np.ones((5, 5))
-    imgDial = cv2.dilate(imgThreshold, kernel, iterations=2)
-    imgThreshold = cv2.erode(imgDial, kernel, iterations=1)
-
     contours, _ = cv2.findContours(
         imgThreshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )
-    biggest, _ = biggestContour(contours)
+    debug_img = resized_img.copy()
+    cv2.drawContours(debug_img, contours, -1, (0, 255, 0), 3)
 
-    if biggest.size != 0:
-        biggest = reorder(biggest)
-        pts1 = np.float32(biggest)
-        pts2 = np.float32(
-            [[0, 0], [widthImg, 0], [0, heightImg], [widthImg, heightImg]]
-        )
-        matrix = cv2.getPerspectiveTransform(pts1, pts2)
-        imgWarpColored = cv2.warpPerspective(img, matrix, (widthImg, heightImg))
+    # Encode the contour debug image for display
+    _, contour_encoded = cv2.imencode(".png", debug_img)
+    contour_base64 = base64.b64encode(contour_encoded).decode("utf-8")
 
-        imgWarpGray = cv2.cvtColor(imgWarpColored, cv2.COLOR_BGR2GRAY)
-        imgAdaptiveThre = cv2.adaptiveThreshold(imgWarpGray, 255, 1, 1, 7, 2)
-        imgAdaptiveThre = cv2.bitwise_not(imgAdaptiveThre)
-        imgAdaptiveThre = cv2.medianBlur(imgAdaptiveThre, 3)
+    # Fix MIME type for base64 encoded image
+    contour_image = document.getElementById("output_contour")
+    contour_image.src = f"data:image/png;base64,{contour_base64}"
+    contour_image.style.display = "block"
 
-        stackedImage = stackImages(
-            [
-                [img, imgGray, imgThreshold],
-                [imgWarpColored, imgWarpGray, imgAdaptiveThre],
-            ],
-            0.75,
-        )
+    console.log("No biggest contour found, using bounding box")
+    # If no biggest contour, find the bounding rectangle of the largest contour
+    if contours:
+        largest_contour = max(contours, key=cv2.contourArea)
+        x, y, w, h = cv2.boundingRect(largest_contour)
+        # Scale coordinates back to original size
+        scale_x = original_width / widthImg
+        scale_y = original_height / heightImg
+        x = int(x * scale_x)
+        y = int(y * scale_y)
+        w = int(w * scale_x)
+        h = int(h * scale_y)
 
-        _, img_encoded = cv2.imencode(".png", stackedImage)
+        # Draw rectangle on the original image
+        cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+        # Draw the corner points of the rectangle
+        corners = [(x, y), (x + w, y), (x, y + h), (x + w, y + h)]
+        for corner in corners:
+            cv2.circle(img, corner, 5, (0, 0, 255), -1)  # Red points
+
+        # Encode the modified image to display it
+        _, img_encoded = cv2.imencode(".png", img)
         img_base64 = base64.b64encode(img_encoded).decode("utf-8")
         output_image = document.getElementById("output_image")
         output_image.src = f"data:image/png;base64,{img_base64}"
         output_image.style.display = "block"
+    else:
+        console.log("No contours found, unable to process image")
 
     end_time = time.time()  # End timer
     processing_time = end_time - start_time  # Calculate total processing time
